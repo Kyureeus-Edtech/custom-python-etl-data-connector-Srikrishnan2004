@@ -1,90 +1,67 @@
+# MalShare ETL Connector
 
-# Project: MalShare MongoDB ETL
+## Overview
+This connector extracts malware hash data from the MalShare API, transforms it for MongoDB compatibility, and loads it into a MongoDB collection.
 
----
-
-## Purpose
-Automates the process of collecting malware hash data from MalShare and storing it in MongoDB for further analysis or archiving.
-
----
-
-## Quick Start
-
-**1. Environment Setup**
-	 - Copy your MalShare API key and MongoDB URI into a `.env` file (see `ENV_TEMPLATE` for reference).
-
-**2. Install Requirements**
-	 ```bash
+## Setup Instructions
+1. Add your MalShare API key and MongoDB URI to a `.env` file based on the ENV_TEMPLATE
+2. Install dependencies:
+	 ```
 	 pip install -r requirements.txt
 	 ```
-
-**3. Database**
-	 - Ensure MongoDB is running locally or update your `.env` for remote access.
-
-**4. Run Script**
-	 ```bash
+3. Start MongoDB locally or provide connection details in the `.env` file.
+4. Run the connector:
+	 ```
 	 python etl_connector.py
 	 ```
 
----
-
-## Data Example
-
-MongoDB will store documents like:
-
-```json
+## Example Output
+Documents inserted into MongoDB will look like:
+```
 {
 	"md5": "...",
 	"sha1": "...",
 	"sha256": "...",
-	"created_at": "2025-08-14T12:00:00Z"
+	"ingested_at": "2025-08-14T12:00:00Z"
 }
 ```
 
----
+## MalShare API Endpoint Details
 
-## MalShare API Details
+- **Base URL:** `https://malshare.com/api.php`
+- **HTTP Method:** `GET`
+- **Query Parameters:**
+	- `api_key` (required): Your MalShare API key. Example: `api_key=0ea8ebf...`
+	- `action` (required): The action to perform. For listing hashes, use `action=getlist`.
+	- Other actions (not used in this connector) may include `getfile`, `search`, etc. See MalShare docs for more.
+- **Request Body:** None (all parameters are sent as query params)
+- **Headers:** No special headers required for this endpoint.
+- **Authentication:** API key passed as a query parameter.
+- **Example Request:**
+	```
+	GET https://malshare.com/api.php?api_key=YOUR_API_KEY&action=getlist
+	```
+- **Response Format:** JSON array of objects, each with:
+	- `md5`: MD5 hash of the malware sample
+	- `sha1`: SHA1 hash
+	- `sha256`: SHA256 hash
+	Example response:
+	```json
+	[
+		{
+			"md5": "f7aa39965451575bebfcd82024b816a1",
+			"sha1": "b69e51bc065cefa4be766385cff5234b26883dbc",
+			"sha256": "5f2aff691b3a2e9e2e6862e7791199b5a66f20fd9de07fa08c8627e16e1e57de"
+		},
+		{
+			"md5": "c2d2559a0cce7370e3b34d681fbce306",
+			"sha1": "204b65cb33c670fed9e28733008f4ad8f26be042",
+			"sha256": "4d6a8348229296c6b27032edbbe2f7f682d2b56cffec333f304c87845280747c"
+		}
+	]
+	```
 
-| Item           | Value/Description                                  |
-|----------------|----------------------------------------------------|
-| Endpoint       | `https://malshare.com/api.php`                     |
-| Method         | `GET`                                              |
-| Parameters     | `api_key` (required), `action=getlist` (required)  |
-| Auth           | API key in query string                            |
-| Request Body   | Not used                                           |
-| Headers        | None required                                      |
-| Example        | `GET https://malshare.com/api.php?api_key=YOUR_API_KEY&action=getlist` |
-
-**Response Format:**
-
-Returns a JSON array, each object includes:
-
-| Field    | Description         |
-|----------|---------------------|
-| md5      | MD5 hash            |
-| sha1     | SHA1 hash           |
-| sha256   | SHA256 hash         |
-
-Sample:
-```json
-[
-	{
-		"md5": "f7aa39965451575bebfcd82024b816a1",
-		"sha1": "b69e51bc065cefa4be766385cff5234b26883dbc",
-		"sha256": "5f2aff691b3a2e9e2e6862e7791199b5a66f20fd9de07fa08c8627e16e1e57de"
-	},
-	{
-		"md5": "c2d2559a0cce7370e3b34d681fbce306",
-		"sha1": "204b65cb33c670fed9e28733008f4ad8f26be042",
-		"sha256": "4d6a8348229296c6b27032edbbe2f7f682d2b56cffec333f304c87845280747c"
-	}
-]
-```
-
----
-
-## Notes
-
-- The `getlist` action returns all hashes in one response (no pagination).
-- MalShare may enforce rate limits; see their docs for details.
-- Invalid or missing API keys will result in an error message from the API.
+**Notes:**
+- No pagination is supported for `getlist` (all results returned at once).
+- Rate limits may apply; check MalShare documentation for details.
+- If the API key is invalid or missing, the response will be an error message.

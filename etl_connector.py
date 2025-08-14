@@ -1,59 +1,52 @@
-
 import os
 import requests
 import pymongo
 from datetime import datetime
 
-# Configuration settings
-settings = {
-    "API_TOKEN": os.getenv('MALSHARE_API_KEY'),
-    "API_ENDPOINT": "https://malshare.com/api.php",
-    "MONGO_CONN": os.getenv('MONGO_URI', 'mongodb://localhost:27017/'),
-    "DATABASE": "my_db",
-    "COLLECTION": "my_collection"
-}
+from config.malshare import malshareConfig
+from config.mongo import mongoConfig
 
-# Database connection
-mongo_client = pymongo.MongoClient(settings["MONGO_CONN"])
-mongo_db = mongo_client[settings["DATABASE"]]
-mongo_collection = mongo_db[settings["COLLECTION"]]
+client = pymongo.MongoClient(mongoConfig["URI"])
+db = client[mongoConfig["DB"]]
+collection = db[mongoConfig["COLLECTION"]]
 
-def fetch_data():
-    query = {
-        'api_key': settings["API_TOKEN"],
+def extract():
+    params = {
+        'api_key': malshareConfig["API_KEY"],
         'action': 'getlist'
     }
-    resp = requests.get(settings["API_ENDPOINT"], params=query)
-    resp.raise_for_status()
-    return resp.json()
+    response = requests.get(malshareConfig["BASE_URL"], params=params)
+    response.raise_for_status()
+    data = response.json()
+    return data
 
-def process_data(items):
-    processed = []
-    timestamp = datetime.utcnow().isoformat() + 'Z'
-    for item in items:
-        entry = {
-            'md5': item.get('md5'),
-            'sha1': item.get('sha1'),
-            'sha256': item.get('sha256'),
-            'created_at': timestamp
+def transform(records):
+    transformed = []
+    now = datetime.utcnow().isoformat() + 'Z'
+    for rec in records:
+        doc = {
+            'md5': rec.get('md5'),
+            'sha1': rec.get('sha1'),
+            'sha256': rec.get('sha256'),
+            'ingested_at': now
         }
-        processed.append(entry)
-    return processed
+        transformed.append(doc)
+    return transformed
 
-def store_data(entries):
-    if entries:
-        mongo_collection.insert_many(entries)
-        print(f"Successfully added {len(entries)} records to MongoDB.")
+def load(docs):
+    if docs:
+        collection.insert_many(docs)
+        print(f"Inserted {len(docs)} documents into MongoDB.")
     else:
-        print("No records to add.")
+        print("No documents to insert.")
 
-def run_etl():
+def main():
     try:
-        data = fetch_data()
-        docs = process_data(data)
-        store_data(docs)
-    except Exception as error:
-        print(f"ETL operation failed: {error}")
+        raw_data = extract()
+        docs = transform(raw_data)
+        load(docs)
+    except Exception as e:
+        print(f"ETL process failed: {e}")
 
 if __name__ == "__main__":
-    run_etl()
+    main()
